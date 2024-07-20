@@ -6,6 +6,7 @@
 #include <proto/window.h>
 #include <proto/layout.h>
 #include <proto/button.h>
+#include <proto/integer.h>
 #include <proto/getscreenmode.h>
 #include <reaction/reaction.h>
 #include <reaction/reaction_macros.h>
@@ -13,6 +14,20 @@
 #include <stdio.h>
 #include "canvas.h"
 
+/*
+ * Public data
+ */
+struct Library
+	*WindowBase,
+	*RequesterBase,
+	*LayoutBase,
+	*ButtonBase,
+	*GetScreenModeBase,
+	*IntegerBase;
+
+/*
+ * Private data
+ */
 enum
 {
 	WIN_MAIN,    // main window
@@ -21,20 +36,20 @@ enum
 	BTN_OPEN,    // open a picture, file requester
 	BTN_SAVE,    // save picture, file requester
 	BTN_PALETTE, // open palette requester
+	INT_PEN,     // selected pen display
 	OBJ_SIZEOF
 };
 
-struct Library
-	*WindowBase,
-	*RequesterBase,
-	*LayoutBase,
-	*ButtonBase,
-	*GetScreenModeBase; 
-
+static Object* obj[OBJ_SIZEOF];
 static struct MsgPort* app_port;
 
+
+/*
+ * Private protos
+ */
 static void init_libs(void);
 static void exit_handler(void);
+static void pen_change_handler(UBYTE);
 
 int main(void)
 {
@@ -44,12 +59,11 @@ int main(void)
 
 	if(app_port = CreateMsgPort())
 	{
-		Object* obj[OBJ_SIZEOF];
 		struct Window* window;
 
 		obj[WIN_MAIN] = WindowObject,
 			WA_ScreenTitle, "Sprite Edit",
-			WA_Title, "Sprite Edit Control Window",
+			WA_Title, "Small Picture Edit",
 			WA_Activate, TRUE,
 			WA_DepthGadget, TRUE,
 			WA_DragBar, TRUE,
@@ -58,7 +72,7 @@ int main(void)
 			WA_Width, 300,
 			WA_Height, 40,
 			WINDOW_IconifyGadget, TRUE,
-			WINDOW_IconTitle, "Sprite Edit",
+			WINDOW_IconTitle, "Small Edit",
 			WINDOW_AppPort, app_port,
 			WINDOW_Position, WPOS_TOPLEFT,
 			WINDOW_ParentGroup, HLayoutObject,
@@ -84,6 +98,10 @@ int main(void)
 					GA_RelVerify, TRUE,
 					GA_Text, "_Palette",
 				ButtonEnd,
+				LAYOUT_AddChild, obj[INT_PEN] = IntegerObject,
+					GA_ID, INT_PEN,
+					INTEGER_Arrows, FALSE,
+				IntegerEnd,
 			EndGroup,
 		EndWindow;
 
@@ -95,6 +113,11 @@ int main(void)
 			GETSCREENMODE_DoWidth, TRUE,
 			GETSCREENMODE_DoHeight, TRUE,
 			GETSCREENMODE_DoDepth, TRUE,
+			GETSCREENMODE_DisplayWidth, 16,
+			GETSCREENMODE_DisplayHeight, 16,
+			GETSCREENMODE_MaxWidth, 64,
+			GETSCREENMODE_MaxHeight, 64,
+			GETSCREENMODE_MaxDepth, 4,
 		GetScreenModeEnd;
 
 		if(window = (struct Window*) RA_OpenWindow(obj[WIN_MAIN]))
@@ -131,20 +154,32 @@ int main(void)
 								switch(result & WMHI_GADGETMASK)
 								{
 									case BTN_NEW:
-										close_screen();
+										close_canvas();
 
 										if(RequestScreenMode(obj[WIN_GSM], window))
 										{
 											ULONG display_id;
-											ULONG depth;
+											ULONG depth, width, height;
 
 											GetAttr(GETSCREENMODE_DisplayID, obj[WIN_GSM],
 												 &display_id);
 
+											GetAttr(GETSCREENMODE_DisplayWidth, obj[WIN_GSM],
+												 &width);
+
+											GetAttr(GETSCREENMODE_DisplayHeight, obj[WIN_GSM],
+												 &height);
+
 											GetAttr(GETSCREENMODE_DisplayDepth, obj[WIN_GSM],
 												 &depth);
 
-											open_screen(display_id, 0, 0, depth);
+											open_canvas(
+												display_id,
+												width,
+												height,
+												depth,
+												pen_change_handler
+											);
 										}
 										break;
 									case BTN_OPEN:
@@ -198,12 +233,23 @@ static void init_libs(void)
 
 	if(!(GetScreenModeBase = OpenLibrary("gadgets/getscreenmode.gadget", -1)))
 		exit(-5);
+
+	if(!(IntegerBase = OpenLibrary("gadgets/integer.gadget", -1)))
+		exit(-6);
+}
+
+static void pen_change_handler(UBYTE pen)
+{
+	printf("Pen %d selected\n", pen);
+
+	SetAttrs(obj[INT_PEN], INTEGER_Number, pen, TAG_DONE);
 }
 
 static void exit_handler(void)
 {
 	if(app_port) DeleteMsgPort(app_port);
 
+	if(IntegerBase) CloseLibrary(IntegerBase);
 	if(GetScreenModeBase) CloseLibrary(GetScreenModeBase);
 	if(ButtonBase) CloseLibrary(ButtonBase);
 	if(LayoutBase) CloseLibrary(LayoutBase);
