@@ -3,8 +3,6 @@
 
 #include <intuition/screens.h>
 
-typedef struct Screen Screen;
-typedef struct Window Window;
 typedef VOID (*OnPenChanged)(UBYTE);
 
 VOID open_canvas(

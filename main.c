@@ -12,7 +12,9 @@
 #include <reaction/reaction_macros.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include "datatypes.h"
 #include "canvas.h"
+#include "turbo.h"
 
 /*
  * Public data
@@ -41,26 +43,28 @@ enum
 };
 
 static Object* obj[OBJ_SIZEOF];
-static struct MsgPort* app_port;
-
+static MsgPort* app_port;
+static Window* main_window;
 
 /*
  * Private protos
  */
-static void init_libs(void);
-static void exit_handler(void);
-static void pen_change_handler(UBYTE);
+static VOID init_libs(VOID);
+static BOOL main_window_event_handler(ULONG*);
+static VOID exit_handler(VOID);
+static VOID pen_change_handler(UBYTE);
 
+/*
+ * Public functions
+ */
 int main(void)
 {
 	atexit(exit_handler);
 
 	init_libs();
 
-	if(app_port = CreateMsgPort())
+	if(app_port = CreateMsgPort()) // for eg AREXX messages
 	{
-		struct Window* window;
-
 		obj[WIN_MAIN] = WindowObject,
 			WA_ScreenTitle, "Sprite Edit",
 			WA_Title, "Small Picture Edit",
@@ -120,96 +124,17 @@ int main(void)
 			GETSCREENMODE_MaxDepth, 4,
 		GetScreenModeEnd;
 
-		if(window = (struct Window*) RA_OpenWindow(obj[WIN_MAIN]))
+		if(main_window = (struct Window*) RA_OpenWindow(obj[WIN_MAIN]))
 		{
-			ULONG app = 1L << app_port->mp_SigBit;
-			BOOL done = FALSE;
-			ULONG signal;
+			// ULONG app = 1L << app_port->mp_SigBit;
+			WinTurbo turbo = {0};
 
-			GetAttr(WINDOW_SigMask, obj[WIN_MAIN], &signal);
+			GetAttr(WINDOW_SigMask, obj[WIN_MAIN], &turbo.signal);
 
-			while(!done)
-			{
-				ULONG wait = Wait( signal | SIGBREAKF_CTRL_C | app);
+			turbo.event_handler = main_window_event_handler;
 
-				if(wait & SIGBREAKF_CTRL_C)
-				{
-					done = TRUE;
-				}
-				else
-				{
-					ULONG result;
-					UWORD code;
+			main_turbo(&turbo);
 
-					while((result = RA_HandleInput(obj[WIN_MAIN], &code)) !=
-						WMHI_LASTMSG)
-					{
-						switch(result & WMHI_CLASSMASK)
-						{
-							case WMHI_CLOSEWINDOW:
-								done=TRUE;
-								break;
-
-							case WMHI_GADGETUP:
-								switch(result & WMHI_GADGETMASK)
-								{
-									case BTN_NEW:
-										close_canvas();
-
-										if(RequestScreenMode(obj[WIN_GSM], window))
-										{
-											ULONG display_id;
-											ULONG depth, width, height;
-
-											GetAttr(GETSCREENMODE_DisplayID, obj[WIN_GSM],
-												 &display_id);
-
-											GetAttr(GETSCREENMODE_DisplayWidth, obj[WIN_GSM],
-												 &width);
-
-											GetAttr(GETSCREENMODE_DisplayHeight, obj[WIN_GSM],
-												 &height);
-
-											GetAttr(GETSCREENMODE_DisplayDepth, obj[WIN_GSM],
-												 &depth);
-
-											open_canvas(
-												display_id,
-												width,
-												height,
-												depth,
-												pen_change_handler
-											);
-										}
-										break;
-									case BTN_OPEN:
-										break;
-									case BTN_SAVE:
-										break;
-									case BTN_PALETTE:
-										break;
-								}
-								break;
-
-       				case WMHI_ICONIFY:
-             		RA_Iconify(obj[WIN_MAIN]);
-             		window = NULL;
-             		break;
-
-        			case WMHI_UNICONIFY:
-              	if(window = (struct Window *) RA_OpenWindow(obj[WIN_MAIN]))
-             		{
-                	GetAttr(WINDOW_SigMask, obj[WIN_MAIN], &signal);
-             		}
-								else
-             		{
-                	done = TRUE;
-             		}
-            		break;
-						}
-					}
-				}
-			}
 			RA_CloseWindow(obj[WIN_MAIN]);
 		}
 	}
@@ -245,6 +170,82 @@ static void pen_change_handler(UBYTE pen)
 	SetAttrs(obj[INT_PEN], INTEGER_Number, pen, TAG_DONE);
 }
 
+static BOOL main_window_event_handler(ULONG* signal)
+{
+	ULONG result;
+	UWORD code;
+	BOOL is_done = FALSE;
+
+	while((result = RA_HandleInput(obj[WIN_MAIN], &code)) != WMHI_LASTMSG)
+	{
+		switch(result & WMHI_CLASSMASK)
+		{
+			case WMHI_CLOSEWINDOW:
+				is_done=TRUE;
+				break;
+
+			case WMHI_GADGETUP:
+				switch(result & WMHI_GADGETMASK)
+				{
+					case BTN_NEW:
+						close_canvas();
+
+						if(RequestScreenMode(obj[WIN_GSM], main_window))
+						{
+							ULONG display_id;
+							ULONG depth, width, height;
+
+							GetAttr(GETSCREENMODE_DisplayID, obj[WIN_GSM],
+								&display_id);
+
+							GetAttr(GETSCREENMODE_DisplayWidth, obj[WIN_GSM],
+								&width);
+
+							GetAttr(GETSCREENMODE_DisplayHeight, obj[WIN_GSM],
+								&height);
+
+							GetAttr(GETSCREENMODE_DisplayDepth, obj[WIN_GSM],
+								&depth);
+
+							open_canvas(
+								display_id,
+								width,
+								height,
+								depth,
+								pen_change_handler
+							);
+						}
+						break;
+					case BTN_OPEN:
+						break;
+					case BTN_SAVE:
+						break;
+					case BTN_PALETTE:
+						break;
+					}
+				break;
+
+			case WMHI_ICONIFY:
+      	RA_Iconify(obj[WIN_MAIN]);
+        main_window = NULL;
+        break;
+
+ 			case WMHI_UNICONIFY:
+      	if(main_window = (Window*) RA_OpenWindow(obj[WIN_MAIN]))
+      	{
+         	GetAttr(WINDOW_SigMask, obj[WIN_MAIN], signal);
+      	}
+				else
+        {
+        	is_done = TRUE;
+        }
+        break;
+		}
+	}
+
+	return is_done;
+}
+
 static void exit_handler(void)
 {
 	if(app_port) DeleteMsgPort(app_port);
@@ -253,5 +254,6 @@ static void exit_handler(void)
 	if(GetScreenModeBase) CloseLibrary(GetScreenModeBase);
 	if(ButtonBase) CloseLibrary(ButtonBase);
 	if(LayoutBase) CloseLibrary(LayoutBase);
+	if(RequesterBase) CloseLibrary(RequesterBase);
 	if(WindowBase) CloseLibrary(WindowBase);
 }

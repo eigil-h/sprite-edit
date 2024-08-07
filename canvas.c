@@ -1,7 +1,10 @@
+#include <proto/exec.h>
 #include <proto/intuition.h>
 #include <proto/graphics.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include "datatypes.h"
+#include "turbo.h"
 #include "canvas.h"
 
 /*
@@ -11,10 +14,13 @@ static Screen* screen;
 static Window* preview_window;
 static Window* edit_window;
 static Window* palette_window;
+static WinTurbo palette_turbo;
+static OnPenChanged on_pen_changed;
 
 /*
  * Private protos
  */
+static BOOL palette_input_handler(ULONG*);
 static VOID draw_border(Window*);
 static VOID draw_palette(VOID);
 static UBYTE palette_columns(UBYTE screen_depth);
@@ -28,11 +34,13 @@ VOID open_canvas(
 	UWORD width,
 	UWORD height,
 	UBYTE depth,
-	OnPenChanged on_pen_changed)
+	OnPenChanged opc)
 {
 	LONG error;
 
 	atexit(close_canvas);
+
+	on_pen_changed = opc;
 
 	if(!(screen = OpenScreenTags(NULL,
 		SA_DisplayID, display_id,
@@ -56,6 +64,7 @@ VOID open_canvas(
 		WA_Backdrop, TRUE,
 		WA_Borderless, TRUE,
 		WA_Activate, FALSE,
+		WA_RMBTrap, TRUE,
 		TAG_DONE
 	))) exit(-1);
 
@@ -63,12 +72,13 @@ VOID open_canvas(
 
 	if(!(edit_window = OpenWindowTags(NULL,
 		WA_CustomScreen, (ULONG) screen,
-		WA_Left, (screen->Width >> 1) - (4 * width),
+		WA_Left, (screen->Width >> 1) - (2 * width),
 		WA_Width, 4 * width,
 		WA_Height, 4 * height,
 		WA_Backdrop, TRUE,
 		WA_Borderless, TRUE,
 		WA_Activate, TRUE,
+		WA_RMBTrap, TRUE,
 		TAG_DONE
 	))) exit(-1);
 
@@ -82,17 +92,26 @@ VOID open_canvas(
 		WA_Backdrop, TRUE,
 		WA_Borderless, TRUE,
 		WA_Activate, FALSE,
+		WA_RMBTrap, TRUE,
 		WA_IDCMP, IDCMP_MOUSEBUTTONS,
 		TAG_DONE
 	))) exit(-1);
 
 	draw_palette();
+
+
+	palette_turbo.signal = 1 << palette_window->UserPort->mp_SigBit;
+	palette_turbo.port = palette_window->UserPort;
+	palette_turbo.event_handler = palette_input_handler;
+
+	add_win_turbo(&palette_turbo);
 }
 
 VOID close_canvas(VOID)
 {
 	if(palette_window)
 	{
+		remove_win_turbo(&palette_turbo);
 		CloseWindow(palette_window);
 		palette_window = NULL;
 	}
@@ -169,4 +188,37 @@ static UBYTE palette_rows(UBYTE screen_depth)
 	if(screen_depth < 3)
 		return (UBYTE) (1 << screen_depth);
 	return (UBYTE) 8;
+}
+
+static BOOL palette_input_handler(ULONG* signal)
+{
+	IntuiMessage* message;
+	ULONG class;
+	UWORD code;
+	WORD mouse_x, mouse_y;
+
+	while(message = (IntuiMessage*) GetMsg(palette_turbo.port))
+	{
+		class = message->Class;
+		code = message->Code;
+		mouse_x = message->MouseX;
+		mouse_y = message->MouseY;
+
+		ReplyMsg((Message*) message);
+
+
+		switch(class)
+		{
+			case IDCMP_MOUSEBUTTONS:
+				switch(code)
+				{
+					case SELECTDOWN:
+						on_pen_changed(1);
+						break;
+				}
+				break;
+		}
+	}
+
+	return FALSE;
 }
