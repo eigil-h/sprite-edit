@@ -13,6 +13,7 @@
 static Screen* screen;
 static Window* preview_window;
 static Window* edit_window;
+static WinTurbo edit_turbo;
 static Window* palette_window;
 static WinTurbo palette_turbo;
 static OnPenChanged on_pen_changed;
@@ -25,6 +26,8 @@ static VOID draw_border(Window*);
 static VOID draw_palette(VOID);
 static UBYTE palette_columns(UBYTE screen_depth);
 static UBYTE palette_rows(UBYTE screen_depth);
+static WORD find_pen(WORD x, WORD y);
+static BOOL edit_input_handler(ULONG*);
 
 /*
  * Public functions
@@ -79,10 +82,17 @@ VOID open_canvas(
 		WA_Borderless, TRUE,
 		WA_Activate, TRUE,
 		WA_RMBTrap, TRUE,
+		WA_IDCMP, IDCMP_MOUSEBUTTONS,
 		TAG_DONE
 	))) exit(-1);
 
 	draw_border(edit_window);
+
+	edit_turbo.signal = 1 << edit_window->UserPort->mp_SigBit;
+	edit_turbo.port = edit_window->UserPort;
+	edit_turbo.event_handler = edit_input_handler;
+
+	add_win_turbo(&edit_turbo);
 
 	if(!(palette_window = OpenWindowTags(NULL,
 		WA_CustomScreen, (ULONG) screen,
@@ -98,7 +108,6 @@ VOID open_canvas(
 	))) exit(-1);
 
 	draw_palette();
-
 
 	palette_turbo.signal = 1 << palette_window->UserPort->mp_SigBit;
 	palette_turbo.port = palette_window->UserPort;
@@ -196,6 +205,7 @@ static BOOL palette_input_handler(ULONG* signal)
 	ULONG class;
 	UWORD code;
 	WORD mouse_x, mouse_y;
+	WORD pen;
 
 	while(message = (IntuiMessage*) GetMsg(palette_turbo.port))
 	{
@@ -213,7 +223,66 @@ static BOOL palette_input_handler(ULONG* signal)
 				switch(code)
 				{
 					case SELECTDOWN:
-						on_pen_changed(1);
+						pen = find_pen(mouse_x, mouse_y);
+						SetAPen(edit_window->RPort, (UBYTE) pen);
+						on_pen_changed((UBYTE) pen);
+						break;
+				}
+				break;
+		}
+	}
+
+	return FALSE;
+}
+
+static WORD find_pen(WORD x, WORD y)
+{
+	UBYTE screen_depth = palette_window->RPort->BitMap->Depth;
+	UBYTE columns = palette_columns(screen_depth),
+		rows = palette_rows(screen_depth);
+	WORD cell_width = (palette_window->Width + (columns-1)) / columns;
+	WORD cell_height = palette_window->Height / rows;
+  WORD col = x / cell_width;
+  WORD row = y / cell_height;
+
+  return (WORD) (row * columns + col);
+}
+
+static BOOL edit_input_handler(ULONG* signal)
+{
+	IntuiMessage* message;
+	ULONG class;
+	UWORD code;
+	WORD mouse_x, mouse_y;
+
+	while(message = (IntuiMessage*) GetMsg(edit_turbo.port))
+	{
+		class = message->Class;
+		code = message->Code;
+		mouse_x = message->MouseX >> 2 << 2;
+		mouse_y = message->MouseY >> 2 << 2;
+
+		ReplyMsg((Message*) message);
+
+
+		switch(class)
+		{
+			case IDCMP_MOUSEBUTTONS:
+				switch(code)
+				{
+					case SELECTDOWN:
+						// Move(edit_window->RPort, mouse_x, mouse_y);
+						RectFill(
+							edit_window->RPort, 
+							mouse_x, 
+							mouse_y,
+							mouse_x + 3,
+							mouse_y + 3
+						);
+						break;
+
+					case SELECTUP:
+						// Draw(edit_window->RPort, mouse_x, mouse_y);
 						break;
 				}
 				break;

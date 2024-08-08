@@ -165,9 +165,14 @@ static void init_libs(void)
 
 static void pen_change_handler(UBYTE pen)
 {
-	printf("Pen %d selected\n", pen);
-
-	SetAttrs(obj[INT_PEN], INTEGER_Number, pen, TAG_DONE);
+	SetGadgetAttrs(
+		(VOID*) obj[INT_PEN],
+		main_window,
+		NULL,
+		INTEGER_Number,
+		pen,
+		TAG_DONE
+	);
 }
 
 static BOOL main_window_event_handler(ULONG* signal)
