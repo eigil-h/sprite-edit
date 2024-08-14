@@ -8,6 +8,7 @@
 #include <proto/button.h>
 #include <proto/integer.h>
 #include <proto/getscreenmode.h>
+#include <proto/getfile.h>
 #include <reaction/reaction.h>
 #include <reaction/reaction_macros.h>
 #include <stdlib.h>
@@ -25,6 +26,7 @@ struct Library
 	*LayoutBase,
 	*ButtonBase,
 	*GetScreenModeBase,
+	*GetFileBase,
 	*IntegerBase;
 
 /*
@@ -34,6 +36,9 @@ enum
 {
 	WIN_MAIN,    // main window
 	WIN_GSM,     // screen mode requester
+	WIN_GFR,     // open file requester
+	WIN_GFW,     // save file requester
+	WIN_PLT,		 // palette requester
 	BTN_NEW,     // a new screen, screen mode requester
 	BTN_OPEN,    // open a picture, file requester
 	BTN_SAVE,    // save picture, file requester
@@ -45,6 +50,7 @@ enum
 static Object* obj[OBJ_SIZEOF];
 static MsgPort* app_port;
 static Window* main_window;
+static Screen* canvas_screen = NULL;
 
 /*
  * Private protos
@@ -124,6 +130,21 @@ int main(void)
 			GETSCREENMODE_MaxDepth, 4,
 		GetScreenModeEnd;
 
+		obj[WIN_GFR] = GetFileObject,
+			GA_ID, WIN_GFR,
+			GA_RelVerify, TRUE,
+			GETFILE_TitleText, "Open file",
+			GETFILE_ReadOnly, TRUE,
+		GetFileEnd;
+
+		obj[WIN_GFW] = GetFileObject,
+			GA_ID, WIN_GFW,
+			GA_RelVerify, TRUE,
+			GETFILE_TitleText, "Save file",
+			GETFILE_ReadOnly, FALSE,
+			GETFILE_DoSaveMode, TRUE,
+		GetFileEnd;
+
 		if(main_window = (struct Window*) RA_OpenWindow(obj[WIN_MAIN]))
 		{
 			// ULONG app = 1L << app_port->mp_SigBit;
@@ -159,8 +180,11 @@ static void init_libs(void)
 	if(!(GetScreenModeBase = OpenLibrary("gadgets/getscreenmode.gadget", -1)))
 		exit(-5);
 
-	if(!(IntegerBase = OpenLibrary("gadgets/integer.gadget", -1)))
+	if(!(GetFileBase = OpenLibrary("gadgets/getfile.gadget", -1)))
 		exit(-6);
+
+	if(!(IntegerBase = OpenLibrary("gadgets/integer.gadget", -1)))
+		exit(-7);
 }
 
 static void pen_change_handler(UBYTE pen)
@@ -194,6 +218,7 @@ static BOOL main_window_event_handler(ULONG* signal)
 				{
 					case BTN_NEW:
 						close_canvas();
+						canvas_screen = NULL;
 
 						if(RequestScreenMode(obj[WIN_GSM], main_window))
 						{
@@ -212,25 +237,57 @@ static BOOL main_window_event_handler(ULONG* signal)
 							GetAttr(GETSCREENMODE_DisplayDepth, obj[WIN_GSM],
 								&depth);
 
-							open_canvas(
+							canvas_screen = open_canvas(
 								display_id,
 								width,
 								height,
 								depth,
+								main_window->WScreen,
 								pen_change_handler
 							);
 						}
 						break;
+
 					case BTN_OPEN:
+						if(canvas_screen)
+						{
+							if(gfRequestFile(obj[WIN_GFR], main_window))
+							{
+								STRPTR filename;
+								GetAttr(GETFILE_FullFile, obj[WIN_GFR], (ULONG*) &filename);
+							}
+						}
+						else
+						{
+							DisplayBeep(main_window->WScreen);
+						}
 						break;
+
 					case BTN_SAVE:
+						if(canvas_screen)
+						{
+							if(gfRequestFile(obj[WIN_GFW], main_window))
+							{
+								STRPTR filename;
+								GetAttr(GETFILE_FullFile, obj[WIN_GFW], (ULONG*) &filename);
+							}
+						}
+						else
+						{
+							DisplayBeep(main_window->WScreen);
+						}
+
 						break;
+
 					case BTN_PALETTE:
+						DisplayBeep(main_window->WScreen);
 						break;
 					}
 				break;
 
 			case WMHI_ICONIFY:
+				close_canvas();
+				canvas_screen = NULL;
       	RA_Iconify(obj[WIN_MAIN]);
         main_window = NULL;
         break;
@@ -256,6 +313,7 @@ static void exit_handler(void)
 	if(app_port) DeleteMsgPort(app_port);
 
 	if(IntegerBase) CloseLibrary(IntegerBase);
+	if(GetFileBase) CloseLibrary(GetFileBase);
 	if(GetScreenModeBase) CloseLibrary(GetScreenModeBase);
 	if(ButtonBase) CloseLibrary(ButtonBase);
 	if(LayoutBase) CloseLibrary(LayoutBase);

@@ -32,11 +32,12 @@ static BOOL edit_input_handler(ULONG*);
 /*
  * Public functions
  */
-VOID open_canvas(
+Screen* open_canvas(
 	ULONG display_id,
 	UWORD width,
 	UWORD height,
 	UBYTE depth,
+	Screen* parent,
 	OnPenChanged opc)
 {
 	LONG error;
@@ -47,6 +48,7 @@ VOID open_canvas(
 
 	if(!(screen = OpenScreenTags(NULL,
 		SA_DisplayID, display_id,
+		SA_Parent, parent,
 		SA_Left, 0,
 		SA_Top, 100,
 		SA_Depth, depth,
@@ -114,6 +116,8 @@ VOID open_canvas(
 	palette_turbo.event_handler = palette_input_handler;
 
 	add_win_turbo(&palette_turbo);
+
+	return screen;
 }
 
 VOID close_canvas(VOID)

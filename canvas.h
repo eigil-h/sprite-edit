@@ -5,11 +5,12 @@
 
 typedef VOID (*OnPenChanged)(UBYTE);
 
-VOID open_canvas(
+Screen* open_canvas(
 	ULONG display_id,
 	UWORD width,
 	UWORD height,
 	UBYTE depth,
+	Screen* parent,
 	OnPenChanged);
 VOID close_canvas(VOID);
 
