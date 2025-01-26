@@ -49,6 +49,7 @@ enum
 
 static Object* obj[OBJ_SIZEOF];
 static MsgPort* app_port;
+static Screen* main_screen;
 static Window* main_window;
 static Screen* canvas_screen = NULL;
 
@@ -71,7 +72,17 @@ int main(void)
 
 	if(app_port = CreateMsgPort()) // for eg AREXX messages
 	{
+		if(!(main_screen = OpenScreenTags(
+			NULL,
+			SA_LikeWorkbench, TRUE,
+			SA_Title, (ULONG) "Small Picture Edit Screen",
+			TAG_END)))
+		{
+			exit(-1);
+		}
+
 		obj[WIN_MAIN] = WindowObject,
+			WA_CustomScreen, (ULONG) main_screen,
 			WA_ScreenTitle, "Sprite Edit",
 			WA_Title, "Small Picture Edit",
 			WA_Activate, TRUE,
@@ -158,6 +169,8 @@ int main(void)
 			main_turbo(&turbo);
 
 			RA_CloseWindow(obj[WIN_MAIN]);
+
+			// DisposeObject(obj[WIN_MAIN] ?
 		}
 	}
 
@@ -321,6 +334,7 @@ static BOOL main_window_event_handler(ULONG* signal)
 
 static void exit_handler(void)
 {
+	if(main_screen) CloseScreen(main_screen);
 	if(app_port) DeleteMsgPort(app_port);
 
 	if(IntegerBase) CloseLibrary(IntegerBase);
