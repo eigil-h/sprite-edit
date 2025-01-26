@@ -1,0 +1,4 @@
+FROM LIB:c.o "main.o"+"canvas.o"+"io.o"+"turbo.o"
+TO "Sprite Edit"
+LIB LIB:sc.lib LIB:amiga.lib
+

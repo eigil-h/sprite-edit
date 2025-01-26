@@ -3,7 +3,9 @@
 
 #include <exec/lists.h>
 #include <exec/ports.h>
+#include <graphics/gfx.h>
 #include <intuition/intuition.h>
+#include <datatypes/pictureclass.h>
 
 /*
  * macros
@@ -22,5 +24,19 @@ typedef struct Screen Screen;
 typedef struct Window Window;
 typedef struct IntuiMessage IntuiMessage;
 typedef struct Message Message;
+typedef struct BitMap BitMap;
+typedef struct BitMapHeader BitMapHeader;
+
+/*
+ * custom
+ */
+typedef ULONG* Palette32;
+
+typedef struct
+{
+	UWORD width, height, depth, pad;
+	BitMap* bitmap;
+	Palette32 palette;
+} PictureData;
 
 #endif

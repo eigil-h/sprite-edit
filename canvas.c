@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include "datatypes.h"
 #include "turbo.h"
+#include "io.h"
 #include "canvas.h"
 
 /*
@@ -131,6 +132,7 @@ VOID close_canvas(VOID)
 
 	if(edit_window)
 	{
+		remove_win_turbo(&edit_turbo);
 		CloseWindow(edit_window);
 		edit_window = NULL;
 	}
@@ -147,6 +149,66 @@ VOID close_canvas(VOID)
 		screen = NULL;
 	}
 }
+
+BOOL load(CONST_STRPTR path)
+{
+	PictureData picture;
+	// BitMap* friend = preview_window->RPort->BitMap;
+	BOOL success = FALSE;
+
+	picture.width = preview_window->Width;
+	picture.height = preview_window->Height;
+	picture.depth = preview_window->RPort->BitMap->Depth;
+
+	if(!(picture.bitmap = AllocBitMap(
+		picture.width,
+		picture.height,
+		picture.depth,
+		BMF_INTERLEAVED | BMF_CLEAR,
+		NULL)))
+	{
+		puts("AllocBitMap failed");
+		return FALSE;
+	}
+
+	if(!(picture.palette = AllocVec(
+		sizeof(ULONG) * ((3 * (1 << picture.depth) + 2)),
+		NULL)))
+	{
+		puts("AllocVec palette failed");
+		FreeBitMap(picture.bitmap);
+		return FALSE;
+	}
+
+	if(load_picture(path, &picture))
+	{
+		LoadRGB32(&screen->ViewPort, picture.palette);
+		BltBitMapRastPort(
+			picture.bitmap,
+			0,
+			0,
+			preview_window->RPort,
+			0,
+			0,
+			picture.width,
+			picture.height,
+			0xC0);
+
+		success = TRUE;
+	}
+
+
+	FreeVec(picture.palette);
+	FreeBitMap(picture.bitmap);
+
+	return success;
+}
+
+BOOL save(CONST_STRPTR path)
+{
+	return FALSE;
+}
+
 
 /*
  * Private functions
@@ -267,7 +329,6 @@ static BOOL edit_input_handler(ULONG* signal)
 		mouse_y = message->MouseY >> 2 << 2;
 
 		ReplyMsg((Message*) message);
-
 
 		switch(class)
 		{

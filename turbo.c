@@ -10,8 +10,8 @@ static MinList winturbo_list;
 /*
  * Private protos
  */
-ULONG get_signal_set(VOID);
-BOOL handle_all(ULONG);
+static ULONG get_signal_set(VOID);
+static BOOL handle_all(ULONG);
 
 /*
  * Public functions
@@ -45,7 +45,7 @@ VOID remove_win_turbo(WinTurbo* winturbo)
 /*
  * Private functions
  */
-ULONG get_signal_set(VOID)
+static ULONG get_signal_set(VOID)
 {
 	ULONG signal_set = 0L;
 	MinNode* node;
@@ -60,7 +60,7 @@ ULONG get_signal_set(VOID)
 	return signal_set;
 }
 
-BOOL handle_all(ULONG sig)
+static BOOL handle_all(ULONG sig)
 {
 	MinNode* node;
 	BOOL is_done = FALSE;

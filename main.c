@@ -135,6 +135,7 @@ int main(void)
 			GA_RelVerify, TRUE,
 			GETFILE_TitleText, "Open file",
 			GETFILE_ReadOnly, TRUE,
+			GETFILE_Drawer, "CODE:wheresmyferrari",
 		GetFileEnd;
 
 		obj[WIN_GFW] = GetFileObject,
@@ -255,6 +256,11 @@ static BOOL main_window_event_handler(ULONG* signal)
 							{
 								STRPTR filename;
 								GetAttr(GETFILE_FullFile, obj[WIN_GFR], (ULONG*) &filename);
+
+								if(!load(filename))
+								{
+									DisplayBeep(main_window->WScreen);
+								}
 							}
 						}
 						else
@@ -270,6 +276,11 @@ static BOOL main_window_event_handler(ULONG* signal)
 							{
 								STRPTR filename;
 								GetAttr(GETFILE_FullFile, obj[WIN_GFW], (ULONG*) &filename);
+
+								if(!save(filename))
+								{
+									DisplayBeep(main_window->WScreen);
+								}
 							}
 						}
 						else

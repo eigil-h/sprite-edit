@@ -13,5 +13,7 @@ Screen* open_canvas(
 	Screen* parent,
 	OnPenChanged);
 VOID close_canvas(VOID);
+BOOL load(CONST_STRPTR);
+BOOL save(CONST_STRPTR);
 
 #endif
