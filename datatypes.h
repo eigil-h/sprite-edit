@@ -6,6 +6,7 @@
 #include <graphics/gfx.h>
 #include <intuition/intuition.h>
 #include <datatypes/pictureclass.h>
+#include <libraries/iffparse.h>
 
 /*
  * macros
@@ -26,6 +27,7 @@ typedef struct IntuiMessage IntuiMessage;
 typedef struct Message Message;
 typedef struct BitMap BitMap;
 typedef struct BitMapHeader BitMapHeader;
+typedef struct IFFHandle IFFHandle;
 
 /*
  * custom

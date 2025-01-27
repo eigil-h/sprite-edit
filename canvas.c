@@ -5,7 +5,8 @@
 #include <stdio.h>
 #include "datatypes.h"
 #include "turbo.h"
-#include "io.h"
+#include "ior.h"
+#include "iow.h"
 #include "canvas.h"
 
 /*
@@ -206,7 +207,58 @@ BOOL load(CONST_STRPTR path)
 
 BOOL save(CONST_STRPTR path)
 {
-	return FALSE;
+	PictureData picture;
+	BOOL result = FALSE;
+
+	picture.width = preview_window->Width;
+	picture.height = preview_window->Height;
+	picture.depth = preview_window->RPort->BitMap->Depth;
+
+	if(!(picture.bitmap = AllocBitMap(
+		picture.width,
+		picture.height,
+		picture.depth,
+		BMF_INTERLEAVED,
+		preview_window->RPort->BitMap)))
+	{
+		return FALSE;
+	}
+
+	if(!(picture.palette = AllocVec(
+		sizeof(ULONG) * (3 * (1 << picture.depth)),
+		MEMF_CLEAR)))
+	{
+		FreeBitMap(picture.bitmap);
+		return FALSE;
+	}
+
+	BltBitMap(
+		preview_window->RPort->BitMap,
+		preview_window->LeftEdge,
+		preview_window->TopEdge,
+		picture.bitmap,
+		0,
+		0,
+		picture.width,
+		picture.height,
+		0xC0,
+		0xFF,
+		NULL
+	);
+
+	GetRGB32(
+		preview_window->WScreen->ViewPort.ColorMap,
+		0,
+		1 << picture.depth,
+		picture.palette
+	);
+
+	result = save_picture(path, &picture);
+
+	FreeVec(picture.palette);
+	FreeBitMap(picture.bitmap);
+
+	return result;
 }
 
 

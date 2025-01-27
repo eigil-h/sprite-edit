@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "io.h"
+#include "ior.h"
 
 #define BYTES_PER_ROW(w,d) (((((ULONG)(w) + 15) >> 3) & 0xFFFE) * (d))
 
@@ -32,7 +32,7 @@ static VOID body_to_bitmap(BitMapHeader*, UBYTE*, BitMap*);
  */
 BOOL load_picture(CONST_STRPTR path, PictureData* picture_data)
 {
-	struct IFFHandle* iff_handle = NULL;
+	struct IFFHandle* iff_handle;
 	BitMapHeader* bmhd = NULL;
 	UBYTE* cmap = NULL;
 	ULONG cmap_size;
@@ -41,34 +41,34 @@ BOOL load_picture(CONST_STRPTR path, PictureData* picture_data)
 	LONG error;
 
 	if(!(iff_handle = AllocIFF())) {
-		return NULL;
+		return FALSE;
 	}
 
 	if(!(iff_handle->iff_Stream = Open(path, MODE_OLDFILE))) {
 		free_io(iff_handle);
-		return NULL;
+		return FALSE;
 	}
 
 	InitIFFasDOS(iff_handle);
 
 	if(error = OpenIFF(iff_handle, IFFF_READ)) {
 		free_io(iff_handle);
-		return NULL;
+		return FALSE;
 	}
 
 	if(error = PropChunk(iff_handle, ID_ILBM, ID_BMHD)) {
 		free_io(iff_handle);
-		return NULL;
+		return FALSE;
 	}
 
 	if(error = PropChunk(iff_handle, ID_ILBM, ID_CMAP)) {
 		free_io(iff_handle);
-		return NULL;
+		return FALSE;
 	}
 
 	if(error = PropChunk(iff_handle, ID_ILBM, ID_BODY)) {
 		free_io(iff_handle);
-		return NULL;
+		return FALSE;
 	}
 
 	StopOnExit(iff_handle, ID_ILBM, ID_FORM);
@@ -124,10 +124,6 @@ BOOL load_picture(CONST_STRPTR path, PictureData* picture_data)
 	return TRUE;
 }
 
-BOOL save_picture(CONST_STRPTR path, PictureData* pic)
-{
-	return FALSE;
-}
 
 /*
  * Private
@@ -145,7 +141,7 @@ static VOID cmap_to_palette32(
 	*palette++ = (length/3) << 16;
 
 	for (i = 0; i < length; i++) {
-		*palette++ = (*cmap_data++ << 24) & 0xFFFFFFFF;
+		*palette++ = (*cmap_data++ << 24) & 0xFFFFFFFF; //todo: why and (&)?
   }
 
 	*palette = 0L;

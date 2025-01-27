@@ -1,4 +1,4 @@
-FROM LIB:c.o "main.o"+"canvas.o"+"io.o"+"turbo.o"
+FROM LIB:c.o "main.o"+"iow.o"+"canvas.o"+"turbo.o"+"ior.o"
 TO "Sprite Edit"
 LIB LIB:sc.lib LIB:amiga.lib
 
